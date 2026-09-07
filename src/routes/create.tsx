@@ -1,6 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
+import { warn } from "@/lib/warn";
 import { useStore } from "@/lib/pact-store";
 import { CATEGORIES, type Category, type ResolutionMethod } from "@/lib/pact-types";
 import { Input } from "@/components/ui/input";
@@ -42,9 +43,9 @@ function CreatePage() {
 
   const submit = () => {
     const labels = options.map((o) => o.trim()).filter(Boolean);
-    if (title.trim().length < 8) return toast.error("Give the challenge a clearer title.");
-    if (labels.length < 2) return toast.error("Add at least two sides people can pick.");
-    if (minStake < 1 || maxStake < minStake) return toast.error("Check your stake limits.");
+    if (title.trim().length < 8) return warn("Give the challenge a clearer title.");
+    if (labels.length < 2) return warn("Add at least two sides people can pick.");
+    if (minStake < 1 || maxStake < minStake) return warn("Check your stake limits.");
 
     const id = createChallenge({
       title: title.trim(),

@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
+import { warn } from "@/lib/warn";
 import { ArrowDownLeft, ArrowUpRight } from "lucide-react";
 import { useStore } from "@/lib/pact-store";
 import { money } from "@/lib/pact-types";
@@ -81,8 +82,8 @@ function WalletPage() {
             <Button
               className="flex-1"
               onClick={() => {
-                if (amount <= 0) return toast.error("Enter an amount above zero.");
-                if (amount > limit) return toast.error(`Your deposit limit is ${money(limit)}.`);
+                if (amount <= 0) return warn("Enter an amount above zero.");
+                if (amount > limit) return warn(`Your deposit limit is ${money(limit)}.`);
                 deposit(amount, method);
                 toast.success(`${money(amount)} added`);
               }}
@@ -93,8 +94,8 @@ function WalletPage() {
               className="flex-1"
               variant="outline"
               onClick={() => {
-                if (amount <= 0) return toast.error("Enter an amount above zero.");
-                if (amount > me.balance) return toast.error("Not enough in your wallet.");
+                if (amount <= 0) return warn("Enter an amount above zero.");
+                if (amount > me.balance) return warn("Not enough in your wallet.");
                 withdraw(amount, method);
                 toast.success(`${money(amount)} on its way to your ${method.toLowerCase()}`);
               }}

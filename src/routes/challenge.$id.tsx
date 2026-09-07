@@ -1,6 +1,7 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { warn } from "@/lib/warn";
 import { Clock, MessageCircle, Share2, ShieldAlert, Users } from "lucide-react";
 import { useStore } from "@/lib/pact-store";
 import { money, potOf, settle } from "@/lib/pact-types";
@@ -260,9 +261,9 @@ function ChallengeDetail() {
                 className="mt-4 w-full"
                 size="lg"
                 onClick={() => {
-                  if (!side) return toast.error("Pick a side first.");
+                  if (!side) return warn("Pick a side first.");
                   const err = join(challenge.id, side, amount);
-                  if (err) return toast.error(err);
+                  if (err) return warn(err);
                   toast.success(`${money(amount)} locked in escrow`);
                 }}
               >
