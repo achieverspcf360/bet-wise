@@ -397,11 +397,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             ...s,
             challenges: s.challenges.map((x) =>
               x.id === challengeId
-                ? {
+                ? ({
                     ...x,
                     status: winningOptionId ? "resolved" : "void",
-                    winningOptionId,
-                  }
+                    ...(winningOptionId ? { winningOptionId } : {}),
+                  } as Challenge)
+
                 : x,
             ),
           };

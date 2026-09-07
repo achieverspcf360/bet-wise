@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
+import { warn } from "@/lib/warn";
 import { useStore } from "@/lib/pact-store";
 import { credibility, money } from "@/lib/pact-types";
 import { Avatar, TierBadge } from "@/components/pact/TierBadge";
@@ -84,7 +85,7 @@ function ProfilePage() {
           </div>
           <Button
             onClick={() => {
-              if (username.trim().length < 3) return toast.error("Alias is too short.");
+              if (username.trim().length < 3) return warn("Alias is too short.");
               updateProfile({ username: username.trim(), bio: bio.trim() });
               toast.success("Profile updated");
             }}
@@ -107,7 +108,7 @@ function ProfilePage() {
               <Button
                 onClick={() => {
                   if (me.balance < VERIFY_DEPOSIT)
-                    return toast.error(`You need ${money(VERIFY_DEPOSIT)} in your wallet first.`);
+                    return warn(`You need ${money(VERIFY_DEPOSIT)} in your wallet first.`);
                   verify();
                   toast.success("You're verified — the badge shows on every challenge you host.");
                 }}
