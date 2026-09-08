@@ -222,7 +222,7 @@ interface Ctx {
   verify: () => void;
   createChallenge: (
     c: Omit<Challenge, "id" | "entries" | "comments" | "createdAt" | "status" | "initiatorId">,
-  ) => string;
+  ) => { ok: true; id: string } | { ok: false; error: string };
   join: (challengeId: string, optionId: string, amount: number) => string | null;
   resolve: (challengeId: string, winningOptionId?: string) => void;
   comment: (challengeId: string, text: string) => void;
