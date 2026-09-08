@@ -81,8 +81,28 @@ export interface Txn {
 }
 
 export const PLATFORM_FEE = 0.05;
+/** Voided challenges are charged a lower platform fee. */
+export const VOID_PLATFORM_FEE = 0.025;
 export const INITIATOR_WIN_CUT = 0.2;
-export const INITIATOR_VOID_CUT = 0.05;
+/** Hosts earn nothing on a voided challenge. */
+export const INITIATOR_VOID_CUT = 0;
+/** Flat charge to the host for voiding a challenge. */
+export const VOID_PENALTY = 2;
+/** Flat charge to open a challenge. */
+export const INITIATION_FEE = 5;
+
+/** Time units a host can use for the challenge window. */
+export type DurationUnit = "minutes" | "hours" | "days" | "weeks";
+
+export const DURATION_UNITS: { value: DurationUnit; label: string; ms: number }[] = [
+  { value: "minutes", label: "Minutes", ms: 60_000 },
+  { value: "hours", label: "Hours", ms: 3_600_000 },
+  { value: "days", label: "Days", ms: 86_400_000 },
+  { value: "weeks", label: "Weeks", ms: 604_800_000 },
+];
+
+export const durationMs = (value: number, unit: DurationUnit) =>
+  value * (DURATION_UNITS.find((u) => u.value === unit)?.ms ?? 3_600_000);
 
 export const money = (n: number) =>
   `$${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -95,12 +115,25 @@ export const tierLabel: Record<Tier, string> = {
   trusted: "Trusted",
 };
 
-/** Credibility score 0-100 from track record. */
+/**
+ * Credibility score 0-100. Driven by how a host's challenges ended:
+ * cleanly settled challenges build trust, voided ones tear it down.
+ */
 export function credibility(u: User) {
   const base = u.tier === "trusted" ? 70 : u.tier === "verified" ? 45 : 15;
-  const record = Math.min(25, u.hosted * 3 + u.wins * 2);
-  const penalty = u.disputes * 6;
+  const settled = u.settled ?? 0;
+  const voided = u.voided ?? 0;
+  const record = Math.min(25, settled * 4 + u.wins);
+  const penalty = voided * 8 + u.disputes * 6;
   return Math.max(0, Math.min(100, base + record - penalty));
+}
+
+/** Share of a host's finished challenges that ended cleanly, 0-1. */
+export function reliability(u: User) {
+  const settled = u.settled ?? 0;
+  const voided = u.voided ?? 0;
+  const done = settled + voided;
+  return done === 0 ? 1 : settled / done;
 }
 
 export interface PayoutLine {
