@@ -6,10 +6,14 @@ import { Avatar, TierBadge } from "./TierBadge";
 export function countdown(ts: number) {
   const ms = ts - Date.now();
   if (ms <= 0) return "closed";
-  const h = Math.floor(ms / 3600_000);
-  const m = Math.floor((ms % 3600_000) / 60_000);
-  if (h >= 24) return `${Math.floor(h / 24)}d ${h % 24}h left`;
-  return `${h}h ${m}m left`;
+  const mins = Math.floor(ms / 60_000);
+  const h = Math.floor(mins / 60);
+  const d = Math.floor(h / 24);
+  const w = Math.floor(d / 7);
+  if (w >= 1) return `${w}w ${d % 7}d left`;
+  if (d >= 1) return `${d}d ${h % 24}h left`;
+  if (h >= 1) return `${h}h ${mins % 60}m left`;
+  return `${mins}m left`;
 }
 
 export function ChallengeCard({
