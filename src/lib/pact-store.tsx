@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from "react";
 import {
+  INITIATION_FEE,
   settle,
   type Challenge,
   type ChallengeStatus,
@@ -15,7 +16,7 @@ import {
   type User,
 } from "./pact-types";
 
-const KEY = "potluck-state-v1";
+const KEY = "potluck-state-v2";
 const uid = () => Math.random().toString(36).slice(2, 10);
 
 interface State {
@@ -40,6 +41,8 @@ function seed(): State {
       wins: 2,
       losses: 1,
       hosted: 0,
+      settled: 0,
+      voided: 0,
       disputes: 0,
     },
     {
@@ -52,6 +55,8 @@ function seed(): State {
       wins: 24,
       losses: 9,
       hosted: 41,
+      settled: 38,
+      voided: 3,
       disputes: 1,
     },
     {
@@ -64,6 +69,8 @@ function seed(): State {
       wins: 11,
       losses: 8,
       hosted: 7,
+      settled: 7,
+      voided: 0,
       disputes: 0,
     },
     {
@@ -76,6 +83,8 @@ function seed(): State {
       wins: 6,
       losses: 6,
       hosted: 4,
+      settled: 3,
+      voided: 1,
       disputes: 1,
     },
     {
@@ -88,6 +97,8 @@ function seed(): State {
       wins: 1,
       losses: 3,
       hosted: 1,
+      settled: 1,
+      voided: 0,
       disputes: 0,
     },
   ];
