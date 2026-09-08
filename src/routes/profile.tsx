@@ -3,7 +3,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { warn } from "@/lib/warn";
 import { useStore } from "@/lib/pact-store";
-import { credibility, money, reliability } from "@/lib/pact-types";
+import { credibility, reliability } from "@/lib/pact-types";
 import { Avatar, TierBadge } from "@/components/pact/TierBadge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
