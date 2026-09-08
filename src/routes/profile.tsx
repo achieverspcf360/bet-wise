@@ -3,7 +3,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { warn } from "@/lib/warn";
 import { useStore } from "@/lib/pact-store";
-import { credibility, money } from "@/lib/pact-types";
+import { credibility, money, reliability } from "@/lib/pact-types";
 import { Avatar, TierBadge } from "@/components/pact/TierBadge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -31,8 +31,6 @@ export const Route = createFileRoute("/profile")({
   component: ProfilePage,
 });
 
-const VERIFY_DEPOSIT = 250;
-
 function ProfilePage() {
   const { me, state, updateProfile, verify, userById } = useStore();
   const [username, setUsername] = useState(me.username);
@@ -52,10 +50,12 @@ function ProfilePage() {
             <TierBadge user={me} />
           </div>
         </div>
-        <div className="ml-auto grid grid-cols-3 gap-6 text-center">
+        <div className="ml-auto grid grid-cols-5 gap-6 text-center">
           <Stat label="Wins" value={me.wins} />
           <Stat label="Losses" value={me.losses} />
           <Stat label="Hosted" value={me.hosted} />
+          <Stat label="Settled" value={me.settled ?? 0} />
+          <Stat label="Voided" value={me.voided ?? 0} />
         </div>
       </div>
 
@@ -102,24 +102,23 @@ function ProfilePage() {
           {me.tier === "unverified" ? (
             <>
               <p className="text-sm text-muted-foreground">
-                Verified hosts hold a {money(VERIFY_DEPOSIT)} deposit on the platform and pass an
-                age (18+) and identity check. Verified badges draw far more participants.
+                Verification is free. Pass a quick age (18+) and identity check and the badge shows
+                on every challenge you host — verified hosts draw far more participants.
               </p>
               <Button
                 onClick={() => {
-                  if (me.balance < VERIFY_DEPOSIT)
-                    return warn(`You need ${money(VERIFY_DEPOSIT)} in your wallet first.`);
                   verify();
-                  toast.success("You're verified — the badge shows on every challenge you host.");
+                  toast.success("You're verified — no fee, no deposit.");
                 }}
               >
-                Verify for {money(VERIFY_DEPOSIT)}
+                Get verified — free
               </Button>
             </>
           ) : (
             <p className="text-sm text-muted-foreground">
-              You're {me.tier === "trusted" ? "a trusted host" : "verified"}. Keep hosting clean,
-              well-attended challenges to reach Trusted status.
+              You're {me.tier === "trusted" ? "a trusted host" : "verified"}. Trusted status comes
+              from settling challenges cleanly — {me.settled ?? 0} settled, {me.voided ?? 0} voided
+              ({Math.round(reliability(me) * 100)}% clean). Every void pulls your rating down.
             </p>
           )}
         </div>
