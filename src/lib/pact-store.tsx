@@ -456,16 +456,33 @@ export function StoreProvider({ children }: { children: ReactNode }) {
               next = patchUser(next, l.userId, (u) => ({ ...u, losses: u.losses + 1 }));
             }
           }
-          next = patchUser(next, c.initiatorId, (u) => ({
-            ...u,
-            balance: u.balance + result.initiatorCut,
-          }));
+          next = patchUser(next, c.initiatorId, (u) => {
+            const settled = (u.settled ?? 0) + (winningOptionId ? 1 : 0);
+            const voided = (u.voided ?? 0) + (winningOptionId ? 0 : 1);
+            const earnsTrust = settled >= 10 && voided * 4 <= settled;
+            return {
+              ...u,
+              balance: u.balance + result.initiatorCut - result.initiatorPenalty,
+              settled,
+              voided,
+              tier: u.tier === "verified" && earnsTrust ? "trusted" : u.tier,
+            };
+          });
           if (c.initiatorId === s.meId) {
-            next = addTxn(next, {
-              type: "payout",
-              amount: result.initiatorCut,
-              note: `Host cut — ${c.title}`,
-            });
+            if (result.initiatorCut > 0) {
+              next = addTxn(next, {
+                type: "payout",
+                amount: result.initiatorCut,
+                note: `Host cut — ${c.title}`,
+              });
+            }
+            if (result.initiatorPenalty > 0) {
+              next = addTxn(next, {
+                type: "fee",
+                amount: result.initiatorPenalty,
+                note: `Void charge — ${c.title}`,
+              });
+            }
           }
           return next;
         }),
