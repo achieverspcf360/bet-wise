@@ -3,7 +3,16 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { warn } from "@/lib/warn";
 import { useStore } from "@/lib/pact-store";
-import { CATEGORIES, type Category, type ResolutionMethod } from "@/lib/pact-types";
+import {
+  CATEGORIES,
+  DURATION_UNITS,
+  INITIATION_FEE,
+  durationMs,
+  money,
+  type Category,
+  type DurationUnit,
+  type ResolutionMethod,
+} from "@/lib/pact-types";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
@@ -30,7 +39,7 @@ export const Route = createFileRoute("/create")({
 });
 
 function CreatePage() {
-  const { createChallenge } = useStore();
+  const { createChallenge, me } = useStore();
   const navigate = useNavigate();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -38,27 +47,44 @@ function CreatePage() {
   const [options, setOptions] = useState(["", ""]);
   const [minStake, setMinStake] = useState(10);
   const [maxStake, setMaxStake] = useState(200);
-  const [hours, setHours] = useState(48);
+  const [duration, setDuration] = useState(48);
+  const [unit, setUnit] = useState<DurationUnit>("hours");
   const [resolution, setResolution] = useState<ResolutionMethod>("manual");
 
   const submit = () => {
     const labels = options.map((o) => o.trim()).filter(Boolean);
-    if (title.trim().length < 8) return warn("Give the challenge a clearer title.");
-    if (labels.length < 2) return warn("Add at least two sides people can pick.");
-    if (minStake < 1 || maxStake < minStake) return warn("Check your stake limits.");
+    const window = durationMs(duration, unit);
 
-    const id = createChallenge({
+    if (title.trim().length < 8) return warn("Give the challenge a clearer title (8+ characters).");
+    if (description.trim().length < 20)
+      return warn("Spell out the winning conditions — at least 20 characters.");
+    if (labels.length < 2) return warn("Add at least two sides people can pick.");
+    if (new Set(labels.map((l) => l.toLowerCase())).size !== labels.length)
+      return warn("Each side needs a different label.");
+    if (!Number.isFinite(minStake) || !Number.isFinite(maxStake) || minStake < 1)
+      return warn("Minimum stake must be at least $1.");
+    if (maxStake < minStake) return warn("Maximum stake can't be below the minimum.");
+    if (maxStake > 100_000) return warn("Maximum stake is capped at $100,000.");
+    if (!Number.isFinite(duration) || duration < 1)
+      return warn("The challenge window must be at least 1 " + unit.slice(0, -1) + ".");
+    if (window < 5 * 60_000) return warn("Give people at least 5 minutes to join.");
+    if (window > 12 * 604_800_000) return warn("The window can't be longer than 12 weeks.");
+    if (me.balance < INITIATION_FEE)
+      return warn(`You need ${money(INITIATION_FEE)} in your wallet for the initiation fee.`);
+
+    const result = createChallenge({
       title: title.trim(),
       description: description.trim(),
       category,
       options: labels.map((label, i) => ({ id: `${Date.now()}-${i}`, label })),
       minStake,
       maxStake,
-      deadline: Date.now() + hours * 3600_000,
+      deadline: Date.now() + window,
       resolution,
     });
-    toast.success("Challenge is live");
-    navigate({ to: "/challenge/$id", params: { id } });
+    if (!result.ok) return warn(result.error);
+    toast.success(`Challenge is live — ${money(INITIATION_FEE)} initiation fee charged`);
+    navigate({ to: "/challenge/$id", params: { id: result.id } });
   };
 
   return (
@@ -162,14 +188,28 @@ function CreatePage() {
             />
           </div>
           <div>
-            <Label htmlFor="hrs">Closes in (hours)</Label>
-            <Input
-              id="hrs"
-              type="number"
-              className="mt-1.5"
-              value={hours}
-              onChange={(e) => setHours(Number(e.target.value))}
-            />
+            <Label htmlFor="dur">Closes in</Label>
+            <div className="mt-1.5 flex gap-2">
+              <Input
+                id="dur"
+                type="number"
+                min={1}
+                value={duration}
+                onChange={(e) => setDuration(Number(e.target.value))}
+              />
+              <select
+                aria-label="Time unit"
+                value={unit}
+                onChange={(e) => setUnit(e.target.value as DurationUnit)}
+                className="rounded-md border border-border bg-input px-2 text-sm text-foreground"
+              >
+                {DURATION_UNITS.map((u) => (
+                  <option key={u.value} value={u.value}>
+                    {u.label}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
         </div>
 
@@ -199,12 +239,13 @@ function CreatePage() {
         </div>
 
         <div className="rounded-lg border border-border bg-muted/40 p-3 text-xs text-muted-foreground">
-          Payouts: the platform keeps 5% of the pot, you keep 20% of what's left when a side wins.
-          If it voids, everyone is refunded minus a 5% host fee that goes to you.
+          Opening a challenge costs a {money(INITIATION_FEE)} initiation fee. When a side wins, the
+          platform keeps 5% of the pot and you keep 20% of what's left. If you void it, everyone is
+          refunded in full, you earn nothing, you're charged {money(2)}, and the platform keeps 2.5%.
         </div>
 
         <Button className="w-full" size="lg" onClick={submit}>
-          Publish challenge
+          Publish challenge · {money(INITIATION_FEE)} fee
         </Button>
       </div>
     </div>
