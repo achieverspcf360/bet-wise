@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { warn } from "@/lib/warn";
 import { Clock, MessageCircle, Share2, ShieldAlert, Users } from "lucide-react";
 import { useStore } from "@/lib/pact-store";
-import { money, potOf, settle } from "@/lib/pact-types";
+import { money, potOf, settle, VOID_PENALTY } from "@/lib/pact-types";
 import { Avatar, TierBadge } from "@/components/pact/TierBadge";
 import { countdown } from "@/components/pact/ChallengeCard";
 import { Button } from "@/components/ui/button";
@@ -113,9 +113,7 @@ function ChallengeDetail() {
           <div className="flex items-end justify-between">
             <div>
               <p className="text-sm text-muted-foreground">Total pot (live)</p>
-              <p className="font-display text-4xl font-bold neon-text tabular-nums">
-                {money(pot)}
-              </p>
+              <p className="font-display text-4xl font-bold neon-text tabular-nums">{money(pot)}</p>
             </div>
             <span className="inline-flex items-center gap-1 text-sm text-muted-foreground">
               <Users className="size-4" /> {challenge.entries.length} participants
@@ -205,9 +203,7 @@ function ChallengeDetail() {
 
       <aside className="space-y-6 lg:sticky lg:top-20 lg:self-start">
         <div className="surface-card p-6">
-          <h2 className="text-lg font-semibold">
-            {closed ? "Entries closed" : "Pick your side"}
-          </h2>
+          <h2 className="text-lg font-semibold">{closed ? "Entries closed" : "Pick your side"}</h2>
 
           {!closed && (
             <>
@@ -294,8 +290,8 @@ function ChallengeDetail() {
           <Row label="Host cut (20% after fee)" value={money(pot * 0.95 * 0.2)} />
           <Row label="Split among winners" value={money(pot * 0.95 * 0.8)} />
           <p className="mt-3 text-xs text-muted-foreground">
-            If it voids, everyone is refunded minus a 5% host fee, and the platform's 5% still
-            applies.
+            If it voids, every stake is refunded in full, the host earns nothing and pays a{" "}
+            {money(VOID_PENALTY)} void charge, and the platform keeps 2.5% of the pot.
           </p>
         </div>
 
@@ -305,31 +301,55 @@ function ChallengeDetail() {
               <ShieldAlert className="size-4" /> Resolve
             </h2>
             <p className="mt-1 text-xs text-muted-foreground">
-              Settling pays everyone instantly using the engine above.
+              Settling pays everyone instantly. Voiding refunds every stake in full, earns you
+              nothing and costs you {money(VOID_PENALTY)}.
             </p>
-            <div className="mt-3 space-y-2">
-              {challenge.options.map((o) => (
-                <Button
-                  key={o.id}
-                  variant="outline"
-                  className="w-full"
-                  onClick={() => {
-                    resolve(challenge.id, o.id);
-                    toast.success(`Settled — ${o.label} wins`);
-                  }}
-                >
-                  {o.label} wins
-                </Button>
-              ))}
+            <div className="mt-3 space-y-3">
+              {challenge.options.map((o) => {
+                const outcome = settle(challenge, o.id);
+                return (
+                  <div key={o.id} className="rounded-lg border border-border p-3">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="font-medium">{o.label} wins</span>
+                      <span className="text-xs text-muted-foreground">
+                        your cut {money(outcome.initiatorCut)}
+                      </span>
+                    </div>
+                    <div className="mt-2 space-y-1">
+                      {outcome.lines.length === 0 && (
+                        <p className="text-xs text-muted-foreground">No one backed this side.</p>
+                      )}
+                      {outcome.lines.map((l) => (
+                        <div key={l.userId + l.amount} className="flex justify-between text-xs">
+                          <span className="text-muted-foreground">@{l.username}</span>
+                          <span className="tabular-nums text-primary">{money(l.amount)}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <Button
+                      variant="outline"
+                      className="mt-3 w-full"
+                      onClick={() => {
+                        resolve(challenge.id, o.id);
+                        toast.success(`Settled — ${o.label} wins`);
+                      }}
+                    >
+                      Settle: {o.label} wins
+                    </Button>
+                  </div>
+                );
+              })}
               <Button
                 variant="ghost"
                 className="w-full"
                 onClick={() => {
                   resolve(challenge.id);
-                  toast.success("Voided — everyone refunded");
+                  toast.success(
+                    `Voided — everyone refunded, ${money(VOID_PENALTY)} charged to you`,
+                  );
                 }}
               >
-                Void (no winner)
+                Void (no winner) · costs you {money(VOID_PENALTY)}
               </Button>
             </div>
           </div>

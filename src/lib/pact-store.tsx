@@ -4,10 +4,13 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
+import { toast } from "sonner";
 import {
+  INITIATION_FEE,
   settle,
   type Challenge,
   type ChallengeStatus,
@@ -15,7 +18,7 @@ import {
   type User,
 } from "./pact-types";
 
-const KEY = "potluck-state-v1";
+const KEY = "potluck-state-v2";
 const uid = () => Math.random().toString(36).slice(2, 10);
 
 interface State {
@@ -40,6 +43,8 @@ function seed(): State {
       wins: 2,
       losses: 1,
       hosted: 0,
+      settled: 0,
+      voided: 0,
       disputes: 0,
     },
     {
@@ -52,6 +57,8 @@ function seed(): State {
       wins: 24,
       losses: 9,
       hosted: 41,
+      settled: 38,
+      voided: 3,
       disputes: 1,
     },
     {
@@ -64,6 +71,8 @@ function seed(): State {
       wins: 11,
       losses: 8,
       hosted: 7,
+      settled: 7,
+      voided: 0,
       disputes: 0,
     },
     {
@@ -76,6 +85,8 @@ function seed(): State {
       wins: 6,
       losses: 6,
       hosted: 4,
+      settled: 3,
+      voided: 1,
       disputes: 1,
     },
     {
@@ -88,6 +99,8 @@ function seed(): State {
       wins: 1,
       losses: 3,
       hosted: 1,
+      settled: 1,
+      voided: 0,
       disputes: 0,
     },
   ];
@@ -211,7 +224,7 @@ interface Ctx {
   verify: () => void;
   createChallenge: (
     c: Omit<Challenge, "id" | "entries" | "comments" | "createdAt" | "status" | "initiatorId">,
-  ) => string;
+  ) => { ok: true; id: string } | { ok: false; error: string };
   join: (challengeId: string, optionId: string, amount: number) => string | null;
   resolve: (challengeId: string, winningOptionId?: string) => void;
   comment: (challengeId: string, text: string) => void;
@@ -248,9 +261,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     if (!hydrated) return;
     const t = setInterval(() => {
       setState((s) => {
-        const open = s.challenges.filter(
-          (c) => c.status === "open" && c.deadline > Date.now(),
-        );
+        const open = s.challenges.filter((c) => c.status === "open" && c.deadline > Date.now());
         if (open.length === 0) return s;
         const c = open[Math.floor(Math.random() * open.length)]!;
         const bots = s.users.filter((u) => u.id !== s.meId && u.id !== c.initiatorId);
@@ -283,15 +294,64 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return () => clearInterval(t);
   }, [hydrated]);
 
+  // Alert the host as soon as one of their challenge windows closes.
+  const alertedClosed = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (!hydrated) return;
+    const check = () => {
+      for (const c of state.challenges) {
+        if (
+          c.initiatorId === state.meId &&
+          c.status === "open" &&
+          c.deadline <= Date.now() &&
+          !alertedClosed.current.has(c.id)
+        ) {
+          alertedClosed.current.add(c.id);
+          toast.warning("Challenge period is over", {
+            description: `"${c.title}" is closed — settle it or void it now.`,
+            duration: 8000,
+          });
+        }
+      }
+    };
+    check();
+    const t = setInterval(check, 15_000);
+    return () => clearInterval(t);
+  }, [hydrated, state.challenges, state.meId]);
+
+  // Alert participants the moment a challenge they staked on is resolved.
+  const lastStatus = useRef<Record<string, ChallengeStatus> | null>(null);
+  useEffect(() => {
+    if (!hydrated) return;
+    const snapshot: Record<string, ChallengeStatus> = {};
+    for (const c of state.challenges) snapshot[c.id] = c.status;
+    const prev = lastStatus.current;
+    lastStatus.current = snapshot;
+    if (!prev) return;
+    for (const c of state.challenges) {
+      const before = prev[c.id];
+      if (!before || before === c.status) continue;
+      if (c.status !== "resolved" && c.status !== "void") continue;
+      if (!c.entries.some((e) => e.userId === state.meId)) continue;
+      const won =
+        c.status === "resolved" &&
+        c.entries.some((e) => e.userId === state.meId && e.optionId === c.winningOptionId);
+      toast.info(c.status === "void" ? "Challenge voided" : "Challenge resolved", {
+        description:
+          c.status === "void"
+            ? `"${c.title}" was voided — your stake was refunded in full.`
+            : `"${c.title}" is settled. ${won ? "Your side won — payout is in your wallet." : "Your side lost this one."}`,
+        duration: 8000,
+      });
+    }
+  }, [hydrated, state.challenges, state.meId]);
+
   const me = state.users.find((u) => u.id === state.meId)!;
 
   const addTxn = useCallback(
     (s: State, t: Omit<Txn, "id" | "at" | "userId"> & { userId?: string }): State => ({
       ...s,
-      txns: [
-        { id: uid(), at: Date.now(), userId: t.userId ?? s.meId, ...t } as Txn,
-        ...s.txns,
-      ],
+      txns: [{ id: uid(), at: Date.now(), userId: t.userId ?? s.meId, ...t } as Txn, ...s.txns],
     }),
     [],
   );
@@ -308,43 +368,67 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       userById: (id) => state.users.find((u) => u.id === id),
       deposit: (amount, method) =>
         setState((s) =>
-          addTxn(patchUser(s, s.meId, (u) => ({ ...u, balance: u.balance + amount })), {
-            type: "deposit",
-            amount,
-            note: `Deposit via ${method}`,
-          }),
+          addTxn(
+            patchUser(s, s.meId, (u) => ({ ...u, balance: u.balance + amount })),
+            {
+              type: "deposit",
+              amount,
+              note: `Deposit via ${method}`,
+            },
+          ),
         ),
       withdraw: (amount, method) =>
         setState((s) => {
           const u = s.users.find((x) => x.id === s.meId)!;
           if (u.balance < amount) return s;
-          return addTxn(patchUser(s, s.meId, (x) => ({ ...x, balance: x.balance - amount })), {
-            type: "withdraw",
-            amount,
-            note: `Withdrawal to ${method}`,
-          });
-        }),
-      verify: () =>
-        setState((s) => patchUser(s, s.meId, (u) => ({ ...u, tier: "verified" }))),
-      createChallenge: (draft) => {
-        const id = uid();
-        setState((s) => ({
-          ...s,
-          challenges: [
+          return addTxn(
+            patchUser(s, s.meId, (x) => ({ ...x, balance: x.balance - amount })),
             {
-              ...draft,
-              id,
-              initiatorId: s.meId,
-              status: "open",
-              entries: [],
-              comments: [],
-              createdAt: Date.now(),
+              type: "withdraw",
+              amount,
+              note: `Withdrawal to ${method}`,
             },
-            ...s.challenges,
-          ],
-          users: s.users.map((u) => (u.id === s.meId ? { ...u, hosted: u.hosted + 1 } : u)),
-        }));
-        return id;
+          );
+        }),
+      verify: () => setState((s) => patchUser(s, s.meId, (u) => ({ ...u, tier: "verified" }))),
+      createChallenge: (draft) => {
+        if (me.balance < INITIATION_FEE) {
+          return {
+            ok: false as const,
+            error: `You need at least $${INITIATION_FEE} in your wallet for the initiation fee.`,
+          };
+        }
+        const id = uid();
+        setState((s) =>
+          addTxn(
+            {
+              ...s,
+              challenges: [
+                {
+                  ...draft,
+                  id,
+                  initiatorId: s.meId,
+                  status: "open",
+                  entries: [],
+                  comments: [],
+                  createdAt: Date.now(),
+                },
+                ...s.challenges,
+              ],
+              users: s.users.map((u) =>
+                u.id === s.meId
+                  ? { ...u, hosted: u.hosted + 1, balance: u.balance - INITIATION_FEE }
+                  : u,
+              ),
+            },
+            {
+              type: "fee",
+              amount: INITIATION_FEE,
+              note: `Initiation fee — "${draft.title}"`,
+            },
+          ),
+        );
+        return { ok: true as const, id };
       },
       join: (challengeId, optionId, amount) => {
         let err: string | null = null;
@@ -402,7 +486,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
                     status: winningOptionId ? "resolved" : "void",
                     ...(winningOptionId ? { winningOptionId } : {}),
                   } as Challenge)
-
                 : x,
             ),
           };
@@ -426,16 +509,33 @@ export function StoreProvider({ children }: { children: ReactNode }) {
               next = patchUser(next, l.userId, (u) => ({ ...u, losses: u.losses + 1 }));
             }
           }
-          next = patchUser(next, c.initiatorId, (u) => ({
-            ...u,
-            balance: u.balance + result.initiatorCut,
-          }));
+          next = patchUser(next, c.initiatorId, (u) => {
+            const settled = (u.settled ?? 0) + (winningOptionId ? 1 : 0);
+            const voided = (u.voided ?? 0) + (winningOptionId ? 0 : 1);
+            const earnsTrust = settled >= 10 && voided * 4 <= settled;
+            return {
+              ...u,
+              balance: u.balance + result.initiatorCut - result.initiatorPenalty,
+              settled,
+              voided,
+              tier: u.tier === "verified" && earnsTrust ? "trusted" : u.tier,
+            };
+          });
           if (c.initiatorId === s.meId) {
-            next = addTxn(next, {
-              type: "payout",
-              amount: result.initiatorCut,
-              note: `Host cut — ${c.title}`,
-            });
+            if (result.initiatorCut > 0) {
+              next = addTxn(next, {
+                type: "payout",
+                amount: result.initiatorCut,
+                note: `Host cut — ${c.title}`,
+              });
+            }
+            if (result.initiatorPenalty > 0) {
+              next = addTxn(next, {
+                type: "fee",
+                amount: result.initiatorPenalty,
+                note: `Void charge — ${c.title}`,
+              });
+            }
           }
           return next;
         }),
@@ -454,8 +554,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
               : c,
           ),
         })),
-      updateProfile: (patch) =>
-        setState((s) => patchUser(s, s.meId, (u) => ({ ...u, ...patch }))),
+      updateProfile: (patch) => setState((s) => patchUser(s, s.meId, (u) => ({ ...u, ...patch }))),
     };
   }, [state, me, addTxn]);
 
