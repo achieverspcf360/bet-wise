@@ -147,6 +147,8 @@ export interface Settlement {
   pot: number;
   platformFee: number;
   initiatorCut: number;
+  /** Flat charge taken from the host when a challenge is voided. */
+  initiatorPenalty: number;
   lines: PayoutLine[];
 }
 
@@ -154,29 +156,33 @@ export interface Settlement {
  * Payout engine.
  * Win: platform takes 5% of pot, initiator takes 20% of the remainder,
  * the rest is split across winning-side stakes proportionally.
- * Void: every stake is refunded minus 5% to the initiator; the platform
- * still takes 5% of the pot.
+ * Void: every stake is refunded in full, the host earns nothing and is
+ * charged a $2 void penalty, and the platform takes 2.5% of the pot.
  */
 export function settle(c: Challenge, winningOptionId?: string): Settlement {
-  const pot = potOf(c);
-  const platformFee = pot * PLATFORM_FEE;
   const lines: PayoutLine[] = [];
 
+  const pot = potOf(c);
+
   if (!winningOptionId) {
-    let initiatorCut = 0;
     for (const e of c.entries) {
-      const cut = e.amount * INITIATOR_VOID_CUT;
-      initiatorCut += cut;
       lines.push({
         userId: e.userId,
         username: e.username,
-        amount: e.amount - cut,
-        note: "Refund (void, 5% host fee)",
+        amount: e.amount,
+        note: "Full refund (voided)",
       });
     }
-    return { pot, platformFee, initiatorCut, lines };
+    return {
+      pot,
+      platformFee: pot * VOID_PLATFORM_FEE,
+      initiatorCut: 0,
+      initiatorPenalty: VOID_PENALTY,
+      lines,
+    };
   }
 
+  const platformFee = pot * PLATFORM_FEE;
   const afterPlatform = pot - platformFee;
   const initiatorCut = afterPlatform * INITIATOR_WIN_CUT;
   const prize = afterPlatform - initiatorCut;
@@ -192,5 +198,5 @@ export function settle(c: Challenge, winningOptionId?: string): Settlement {
     });
   }
 
-  return { pot, platformFee, initiatorCut, lines };
+  return { pot, platformFee, initiatorCut, initiatorPenalty: 0, lines };
 }
