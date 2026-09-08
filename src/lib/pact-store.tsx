@@ -294,6 +294,58 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return () => clearInterval(t);
   }, [hydrated]);
 
+  // Alert the host as soon as one of their challenge windows closes.
+  const alertedClosed = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (!hydrated) return;
+    const check = () => {
+      for (const c of state.challenges) {
+        if (
+          c.initiatorId === state.meId &&
+          c.status === "open" &&
+          c.deadline <= Date.now() &&
+          !alertedClosed.current.has(c.id)
+        ) {
+          alertedClosed.current.add(c.id);
+          toast.warning("Challenge period is over", {
+            description: `"${c.title}" is closed — settle it or void it now.`,
+            duration: 8000,
+          });
+        }
+      }
+    };
+    check();
+    const t = setInterval(check, 15_000);
+    return () => clearInterval(t);
+  }, [hydrated, state.challenges, state.meId]);
+
+  // Alert participants the moment a challenge they staked on is resolved.
+  const lastStatus = useRef<Record<string, ChallengeStatus> | null>(null);
+  useEffect(() => {
+    if (!hydrated) return;
+    const snapshot: Record<string, ChallengeStatus> = {};
+    for (const c of state.challenges) snapshot[c.id] = c.status;
+    const prev = lastStatus.current;
+    lastStatus.current = snapshot;
+    if (!prev) return;
+    for (const c of state.challenges) {
+      const before = prev[c.id];
+      if (!before || before === c.status) continue;
+      if (c.status !== "resolved" && c.status !== "void") continue;
+      if (!c.entries.some((e) => e.userId === state.meId)) continue;
+      const won =
+        c.status === "resolved" &&
+        c.entries.some((e) => e.userId === state.meId && e.optionId === c.winningOptionId);
+      toast.info(c.status === "void" ? "Challenge voided" : "Challenge resolved", {
+        description:
+          c.status === "void"
+            ? `"${c.title}" was voided — your stake was refunded in full.`
+            : `"${c.title}" is settled. ${won ? "Your side won — payout is in your wallet." : "Your side lost this one."}`,
+        duration: 8000,
+      });
+    }
+  }, [hydrated, state.challenges, state.meId]);
+
   const me = state.users.find((u) => u.id === state.meId)!;
 
   const addTxn = useCallback(
