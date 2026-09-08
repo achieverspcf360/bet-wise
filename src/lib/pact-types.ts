@@ -35,6 +35,10 @@ export interface User {
   wins: number;
   losses: number;
   hosted: number;
+  /** Challenges this host settled with a clear winner. */
+  settled?: number;
+  /** Challenges this host voided. */
+  voided?: number;
   disputes: number;
 }
 
