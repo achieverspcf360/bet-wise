@@ -338,24 +338,43 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       verify: () =>
         setState((s) => patchUser(s, s.meId, (u) => ({ ...u, tier: "verified" }))),
       createChallenge: (draft) => {
+        if (me.balance < INITIATION_FEE) {
+          return {
+            ok: false as const,
+            error: `You need at least $${INITIATION_FEE} in your wallet for the initiation fee.`,
+          };
+        }
         const id = uid();
-        setState((s) => ({
-          ...s,
-          challenges: [
+        setState((s) =>
+          addTxn(
             {
-              ...draft,
-              id,
-              initiatorId: s.meId,
-              status: "open",
-              entries: [],
-              comments: [],
-              createdAt: Date.now(),
+              ...s,
+              challenges: [
+                {
+                  ...draft,
+                  id,
+                  initiatorId: s.meId,
+                  status: "open",
+                  entries: [],
+                  comments: [],
+                  createdAt: Date.now(),
+                },
+                ...s.challenges,
+              ],
+              users: s.users.map((u) =>
+                u.id === s.meId
+                  ? { ...u, hosted: u.hosted + 1, balance: u.balance - INITIATION_FEE }
+                  : u,
+              ),
             },
-            ...s.challenges,
-          ],
-          users: s.users.map((u) => (u.id === s.meId ? { ...u, hosted: u.hosted + 1 } : u)),
-        }));
-        return id;
+            {
+              type: "fee",
+              amount: INITIATION_FEE,
+              note: `Initiation fee — "${draft.title}"`,
+            },
+          ),
+        );
+        return { ok: true as const, id };
       },
       join: (challengeId, optionId, amount) => {
         let err: string | null = null;
