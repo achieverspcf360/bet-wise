@@ -29,7 +29,8 @@ export const Route = createFileRoute("/create")({
       { property: "og:title", content: "Create a Challenge — Potluck" },
       {
         property: "og:description",
-        content: "Set the terms, sides, stake limits and deadline, then invite people to back a side.",
+        content:
+          "Set the terms, sides, stake limits and deadline, then invite people to back a side.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -148,9 +149,7 @@ function CreatePage() {
                 value={o}
                 maxLength={60}
                 placeholder={`Option ${i + 1}`}
-                onChange={(e) =>
-                  setOptions(options.map((x, j) => (i === j ? e.target.value : x)))
-                }
+                onChange={(e) => setOptions(options.map((x, j) => (i === j ? e.target.value : x)))}
               />
             ))}
           </div>
@@ -241,7 +240,8 @@ function CreatePage() {
         <div className="rounded-lg border border-border bg-muted/40 p-3 text-xs text-muted-foreground">
           Opening a challenge costs a {money(INITIATION_FEE)} initiation fee. When a side wins, the
           platform keeps 5% of the pot and you keep 20% of what's left. If you void it, everyone is
-          refunded in full, you earn nothing, you're charged {money(2)}, and the platform keeps 2.5%.
+          refunded in full, you earn nothing, you're charged {money(2)}, and the platform keeps
+          2.5%.
         </div>
 
         <Button className="w-full" size="lg" onClick={submit}>

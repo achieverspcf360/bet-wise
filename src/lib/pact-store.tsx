@@ -261,9 +261,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     if (!hydrated) return;
     const t = setInterval(() => {
       setState((s) => {
-        const open = s.challenges.filter(
-          (c) => c.status === "open" && c.deadline > Date.now(),
-        );
+        const open = s.challenges.filter((c) => c.status === "open" && c.deadline > Date.now());
         if (open.length === 0) return s;
         const c = open[Math.floor(Math.random() * open.length)]!;
         const bots = s.users.filter((u) => u.id !== s.meId && u.id !== c.initiatorId);
@@ -353,10 +351,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const addTxn = useCallback(
     (s: State, t: Omit<Txn, "id" | "at" | "userId"> & { userId?: string }): State => ({
       ...s,
-      txns: [
-        { id: uid(), at: Date.now(), userId: t.userId ?? s.meId, ...t } as Txn,
-        ...s.txns,
-      ],
+      txns: [{ id: uid(), at: Date.now(), userId: t.userId ?? s.meId, ...t } as Txn, ...s.txns],
     }),
     [],
   );
@@ -373,24 +368,29 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       userById: (id) => state.users.find((u) => u.id === id),
       deposit: (amount, method) =>
         setState((s) =>
-          addTxn(patchUser(s, s.meId, (u) => ({ ...u, balance: u.balance + amount })), {
-            type: "deposit",
-            amount,
-            note: `Deposit via ${method}`,
-          }),
+          addTxn(
+            patchUser(s, s.meId, (u) => ({ ...u, balance: u.balance + amount })),
+            {
+              type: "deposit",
+              amount,
+              note: `Deposit via ${method}`,
+            },
+          ),
         ),
       withdraw: (amount, method) =>
         setState((s) => {
           const u = s.users.find((x) => x.id === s.meId)!;
           if (u.balance < amount) return s;
-          return addTxn(patchUser(s, s.meId, (x) => ({ ...x, balance: x.balance - amount })), {
-            type: "withdraw",
-            amount,
-            note: `Withdrawal to ${method}`,
-          });
+          return addTxn(
+            patchUser(s, s.meId, (x) => ({ ...x, balance: x.balance - amount })),
+            {
+              type: "withdraw",
+              amount,
+              note: `Withdrawal to ${method}`,
+            },
+          );
         }),
-      verify: () =>
-        setState((s) => patchUser(s, s.meId, (u) => ({ ...u, tier: "verified" }))),
+      verify: () => setState((s) => patchUser(s, s.meId, (u) => ({ ...u, tier: "verified" }))),
       createChallenge: (draft) => {
         if (me.balance < INITIATION_FEE) {
           return {
@@ -486,7 +486,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
                     status: winningOptionId ? "resolved" : "void",
                     ...(winningOptionId ? { winningOptionId } : {}),
                   } as Challenge)
-
                 : x,
             ),
           };
@@ -555,8 +554,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
               : c,
           ),
         })),
-      updateProfile: (patch) =>
-        setState((s) => patchUser(s, s.meId, (u) => ({ ...u, ...patch }))),
+      updateProfile: (patch) => setState((s) => patchUser(s, s.meId, (u) => ({ ...u, ...patch }))),
     };
   }, [state, me, addTxn]);
 

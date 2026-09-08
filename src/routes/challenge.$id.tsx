@@ -113,9 +113,7 @@ function ChallengeDetail() {
           <div className="flex items-end justify-between">
             <div>
               <p className="text-sm text-muted-foreground">Total pot (live)</p>
-              <p className="font-display text-4xl font-bold neon-text tabular-nums">
-                {money(pot)}
-              </p>
+              <p className="font-display text-4xl font-bold neon-text tabular-nums">{money(pot)}</p>
             </div>
             <span className="inline-flex items-center gap-1 text-sm text-muted-foreground">
               <Users className="size-4" /> {challenge.entries.length} participants
@@ -205,9 +203,7 @@ function ChallengeDetail() {
 
       <aside className="space-y-6 lg:sticky lg:top-20 lg:self-start">
         <div className="surface-card p-6">
-          <h2 className="text-lg font-semibold">
-            {closed ? "Entries closed" : "Pick your side"}
-          </h2>
+          <h2 className="text-lg font-semibold">{closed ? "Entries closed" : "Pick your side"}</h2>
 
           {!closed && (
             <>
@@ -348,7 +344,9 @@ function ChallengeDetail() {
                 className="w-full"
                 onClick={() => {
                   resolve(challenge.id);
-                  toast.success(`Voided — everyone refunded, ${money(VOID_PENALTY)} charged to you`);
+                  toast.success(
+                    `Voided — everyone refunded, ${money(VOID_PENALTY)} charged to you`,
+                  );
                 }}
               >
                 Void (no winner) · costs you {money(VOID_PENALTY)}

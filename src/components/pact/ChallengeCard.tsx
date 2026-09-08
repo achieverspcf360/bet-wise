@@ -16,13 +16,7 @@ export function countdown(ts: number) {
   return `${mins}m left`;
 }
 
-export function ChallengeCard({
-  challenge,
-  initiator,
-}: {
-  challenge: Challenge;
-  initiator: User;
-}) {
+export function ChallengeCard({ challenge, initiator }: { challenge: Challenge; initiator: User }) {
   const pot = potOf(challenge);
   const sides = challenge.options.map((o) => ({
     ...o,
